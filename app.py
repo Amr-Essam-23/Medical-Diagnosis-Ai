@@ -39,18 +39,18 @@ def index():
         <div class="container">
             <div class="text-center mb-5">
                 <h1 class="display-4 text-primary">Medical AI Assistant</h1>
-                <p class="lead">Diagnosis based on NHS Symptoms & LSTM Model</p>
+                <p class="lead">Diagnosis based on NHS Symptoms, LSTM & BERT Models</p>
             </div>
 
             <div class="card p-4">
                 <h5 class="card-title">System Controls</h5>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <button onclick="triggerScrape()" class="btn btn-outline-primary w-100">1. Scrape NHS Data</button>
+                        <button onclick="triggerScrape()" class="btn btn-outline-primary w-100">1. Scrape NHS Data (200 Conditions)</button>
                         <div class="mt-2 small">Scraping: <span id="scrapeStatus" class="badge bg-secondary status-badge">idle</span></div>
                     </div>
                     <div class="col-md-6">
-                        <button onclick="triggerTrain()" class="btn btn-outline-success w-100">2. Train AI Model</button>
+                        <button onclick="triggerTrain()" class="btn btn-outline-success w-100">2. Train AI Models</button>
                         <div class="mt-2 small">Training: <span id="trainStatus" class="badge bg-secondary status-badge">idle</span></div>
                     </div>
                 </div>
@@ -58,6 +58,20 @@ def index():
 
             <div class="card p-4">
                 <h5 class="card-title">Symptom Checker</h5>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="age" class="form-label">Age:</label>
+                        <input type="number" id="age" class="form-control" placeholder="e.g. 25">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="gender" class="form-label">Gender:</label>
+                        <select id="gender" class="form-select">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="mb-3">
                     <label for="symptoms" class="form-label">Enter your symptoms (in English):</label>
                     <textarea id="symptoms" class="form-control" rows="3" placeholder="e.g., I have a high fever, cough, and feel very tired..."></textarea>
@@ -87,7 +101,7 @@ def index():
                 fetch('/scrape', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({limit: 30})
+                    body: JSON.stringify({limit: 200})
                 }).then(r => r.json()).then(d => alert(d.message));
             }
 
@@ -100,6 +114,9 @@ def index():
 
             function predict() {
                 const symptoms = document.getElementById('symptoms').value;
+                const age = document.getElementById('age').value;
+                const gender = document.getElementById('gender').value;
+                
                 if (!symptoms) return alert('Please enter symptoms');
                 
                 const resultsDiv = document.getElementById('results');
@@ -108,7 +125,11 @@ def index():
                 fetch('/predict', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({symptoms: symptoms})
+                    body: JSON.stringify({
+                        symptoms: symptoms,
+                        age: age,
+                        gender: gender
+                    })
                 }).then(r => r.json()).then(data => {
                     if (data.error) {
                         resultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
@@ -123,9 +144,9 @@ def index():
                                     <h4 class="mb-1 text-primary">${p.condition}</h4>
                                     <span class="badge bg-info text-dark">${(p.probability * 100).toFixed(2)}% Match</span>
                                 </div>
-                                <p class="mb-2"><strong>Symptoms:</strong> ${p.symptoms || 'N/A'}</p>
-                                <p class="mb-1 text-muted small"><strong>Advice:</strong> ${p.recommendations}</p>
-                                <a href="${p.url}" target="_blank" class="btn btn-sm btn-link p-0">Read more on NHS website</a>
+                                <p class="mb-2"><strong>Key Symptoms:</strong> ${p.symptoms || 'N/A'}</p>
+                                <p class="mb-1 text-muted small"><strong>Recommendation:</strong> ${p.recommendations || 'Follow NHS advice.'}</p>
+                                <a href="${p.url}" target="_blank" class="btn btn-sm btn-link p-0">Read full article on NHS website</a>
                             </div>
                         `;
                     });
@@ -143,7 +164,7 @@ def get_status():
 
 @app.route('/scrape', methods=['POST'])
 def trigger_scrape():
-    limit = request.json.get('limit', 10)
+    limit = request.json.get('limit', 200)
     def run_scrape():
         global status
         status["scraping"] = "running"
@@ -155,7 +176,7 @@ def trigger_scrape():
         except Exception as e:
             status["scraping"] = f"failed: {str(e)}"
     threading.Thread(target=run_scrape).start()
-    return jsonify({"message": "Scraping started"}), 202
+    return jsonify({"message": "Scraping started. This may take a few minutes for 200 conditions..."}), 202
 
 @app.route('/train', methods=['POST'])
 def trigger_train():
@@ -168,24 +189,20 @@ def trigger_train():
                 status["training"] = "failed: Need more data (at least 2 conditions). Run scrape first."
                 return
             
-            # 1. Preprocess
             df = preprocessor.prepare_dataset(conditions)
             X, y = preprocessor.get_features_labels(df)
             
-            # 2. Train
-            model_manager.train(X, y)
+            metrics = model_manager.train_and_compare(X, y)
             
-            # 3. Save locally
             prefix = "current_model"
             model_manager.save(prefix)
             
-            # 4. Save to DB
             db.save_model(
                 "medical_lstm_v1", 
-                "LSTM", 
+                model_manager.best_model_type, 
                 prefix, 
                 list(model_manager.label_encoder.classes_), 
-                {"accuracy": 0.9} # Dummy accuracy for metadata
+                metrics
             )
             
             status["training"] = "completed"
@@ -195,19 +212,17 @@ def trigger_train():
             status["training"] = f"failed: {str(e)}"
     
     threading.Thread(target=run_train).start()
-    return jsonify({"message": "Training started"}), 202
+    return jsonify({"message": "Training started. This will train Baseline, LSTM, and BERT. Please wait..."}), 202
 
 @app.route('/predict', methods=['POST'])
-def predict():
+def predict_route():
     symptoms = request.json.get('symptoms', '')
     if not symptoms:
         return jsonify({"error": "No symptoms provided"}), 400
     
-    # Try to load model if not in memory
-    if not model_manager.model:
+    if model_manager.lstm_model is None:
         model_doc = db.load_model("medical_lstm_v1")
         if model_doc:
-            # Recreate files from DB
             gridfs_id = model_doc["gridfs_id"]
             with open("current_model_model.h5", "wb") as f:
                 f.write(db.fs.get(gridfs_id).read())
@@ -220,9 +235,13 @@ def predict():
         else:
             return jsonify({"error": "Model not found. Please train first."}), 400
             
-    # Clean input and predict
+    user_metadata = {
+        "age": request.json.get('age', ''),
+        "gender": request.json.get('gender', '')
+    }
+    
     cleaned_input = preprocessor.clean_text(symptoms)
-    predictions = model_manager.predict(cleaned_input)
+    predictions = model_manager.predict(cleaned_input, user_metadata=user_metadata)
     
     enriched_results = []
     for pred in predictions:
@@ -231,6 +250,7 @@ def predict():
             pred.update({
                 "warnings": cond_data.get("warnings", "No special warnings."),
                 "recommendations": cond_data.get("recommendations", ""),
+                "symptoms": cond_data.get("symptoms", ""),
                 "causes": cond_data.get("causes", ""),
                 "url": cond_data.get("url", "")
             })
@@ -239,6 +259,3 @@ def predict():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
-
-
-#project verified
