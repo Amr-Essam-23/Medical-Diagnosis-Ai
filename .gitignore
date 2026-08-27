@@ -1,0 +1,7 @@
+models/medical_model/model.safetensors
+models/*.h5
+*.safetensors
+*.bin
+*.pth
+__pycache__/
+*.pyc
