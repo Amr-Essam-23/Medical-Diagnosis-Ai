@@ -1,57 +1,60 @@
-# Medical AI Assistant: NHS Symptoms & LSTM Diagnosis
+# 🩺 Medical AI Assistant: Multi-Model & Clinical Triage Diagnosis
 
-A deep learning-based medical diagnostic tool that uses **Web Scraping** to gather real-time data from the **NHS Inform** website and an **LSTM Neural Network** to predict conditions based on user symptoms.
+An advanced deep learning-based medical diagnostic tool that processes clinical symptoms using **BioBERT**, **LSTM**, and **Baseline** models to predict conditions, feature patient triage risk assessment, and persist history using **MongoDB**.
 
 ## 🚀 Features
-- **Real-time Web Scraping:** Automatically extracts medical conditions and symptoms from the NHS website.
-- **Deep Learning Model:** Uses a Bidirectional LSTM (Long Short-Term Memory) network for high-accuracy text classification.
-- **Interactive Dashboard:** A modern web interface built with Flask and Bootstrap for easy system control and symptom checking.
-- **Automated Pipeline:** Integrated Scrape-Train-Predict workflow.
+- **Multi-Model Diagnosis:** Uses BioBERT (Transformer), Bidirectional LSTM, and Naive Bayes models for symptom classification.
+- **Patient Context & Triage Risk:** Accepts Patient Age & Gender, automatically tagging emergency high-risk conditions.
+- **Persistent Storage:** Integrated MongoDB database to store disease data, prediction logs, model status, and usage statistics.
+- **Interactive Dashboard:** Modern web interface built with Flask and Bootstrap for diagnosis, triage logging, and system control.
+- **Google Colab Training:** Includes script for GPU training and seamless BioBERT weight extraction.
 
 ## 🛠️ Tech Stack
 - **Backend:** Python, Flask
-- **Machine Learning:** TensorFlow, Keras, Scikit-learn
-- **Natural Language Processing:** NLTK (Lemmatization, Stop-word removal)
-- **Database:** MongoDB (with GridFS for model storage)
-- **Web Scraping:** BeautifulSoup4, Requests
+- **Machine Learning & DL:** PyTorch, Transformers (HuggingFace), TensorFlow/Keras, Scikit-learn
+- **Natural Language Processing:** BioBERT, NLTK
+- **Database:** MongoDB
+- **Frontend & Web Scraping:** HTML5, Bootstrap 5, BeautifulSoup4, Requests
 
 ## 📂 Project Structure
-- `app.py`: Main Flask application with the web dashboard.
-- `scraper.py`: NHS web scraping logic.
-- `preprocess.py`: Text cleaning and NLP preprocessing.
-- `models.py`: LSTM model architecture and training.
-- `db_utils.py`: MongoDB interactions and GridFS management.
-- `architecture.png`: Visual representation of the system workflow.
+- `app_all.py`: Main Flask application with the full UI and pre-loaded model inference.
+- `src/model_LSTM.py`: LSTM model architecture and training logic.
+- `src/baseline_model.py`: TF-IDF Naive Bayes baseline pipeline.
+- `src/db_utils.py`: MongoDB interaction layer and statistics logging.
+- `src/preprocess.py`: Text cleaning and NLP preprocessing pipeline.
+- `scraper.py`: NHS web scraping tool for disease dataset collection.
+- `medical_diagnosis_ai_colab.py`: Google Colab script for BioBERT model training.
+
+## 📦 How to Setup Model Weights (BioBERT)
+Due to GitHub's file size limits (>100MB), heavy model weights (`model.safetensors`) are trained separately:
+1. Open `medical_diagnosis_ai_colab.py` in **Google Colab** with **GPU** enabled.
+2. Run the notebook to train the BioBERT model and download the output files.
+3. Place the downloaded `model.safetensors` file into the local directory: `models/medical_model/model.safetensors`.
 
 ## ⚙️ Installation & Setup
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/medical-ai.git
-   cd medical-ai
-   ```
+   git clone [https://github.com/Amr-Essam-23/Medical-Diagnosis-Ai.git](https://github.com/Amr-Essam-23/Medical-Diagnosis-Ai.git)
+   cd Medical-Diagnosis-Ai
+Install dependencies:
 
-2. **Install dependencies:**
-   ```bash
-   pip install flask pymongo tensorflow scikit-learn beautifulsoup4 requests tqdm pandas numpy nltk
-   ```
+Bash
+pip install -r requirements.txt
+Ensure MongoDB is running:
+The application requires a local MongoDB instance running at mongodb://localhost:27017/.
 
-3. **Ensure MongoDB is running:**
-   The application requires a local MongoDB instance on port 27017.
+Run the application:
 
-4. **Run the application:**
-   ```bash
-   python app.py
-   ```
-   Open `http://127.0.0.1:5000` in your browser.
+Bash
+python app_all.py
+Open http://127.0.0.1:5000 in your browser.
 
-## 📖 How to Use
-1. **Scrape:** Click "Scrape NHS Data" to populate the database with real medical data.
-2. **Train:** Click "Train AI Model" to build the LSTM model based on the scraped data.
-3. **Predict:** Enter symptoms (e.g., "I have a severe headache and nausea") in the text area and click "Get Diagnosis".
+📖 How to Use
+Input Context: Enter patient details (Age, Gender, Symptoms).
 
-## 📊 System Architecture
-Refer to `architecture.png` for a detailed view of the data flow and model structure.
+Predict: Click "Get Diagnosis" to analyze symptoms using the BioBERT Transformer.
 
----
-*Disclaimer: This tool is for educational purposes only and should not be used as a substitute for professional medical advice.*
+Triage & History: View predicted condition, confidence score, triage flag (NORMAL/HIGH RISK), and check MongoDB history logs.
+
+Disclaimer: This tool is for educational purposes only and should not be used as a substitute for professional medical advice.
